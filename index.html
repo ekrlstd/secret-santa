@@ -57,8 +57,8 @@
   .results-head { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-top: 12px; }
 
   /* Reveal page */
-  .reveal { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-  .reveal-card { text-align: center; padding: 32px 20px; width: 100%; max-width: 420px; }
+  main.reveal { height: 100vh; height: 100dvh; overflow: hidden; padding: 16px; display: flex; align-items: center; justify-content: center; }
+  .reveal-card { text-align: center; padding: 28px 20px; width: 100%; max-width: 420px; margin: 0; }
   .big-emoji { font-size: 3.5rem; line-height: 1; }
   .hello { font-size: 1.4rem; font-weight: 700; margin: 12px 0 4px; }
   .receiver { font-size: 2.4rem; font-weight: 800; color: var(--red); margin: 8px 0 16px; overflow-wrap: anywhere; }
@@ -114,15 +114,13 @@
     <p>You're buying a Secret Santa gift for…</p>
     <button id="revealBtn" class="primary big">Tap to reveal</button>
     <p id="receiver" class="receiver" hidden></p>
-    <p id="revealMeta" class="muted small"></p>
   </div>
 </main>
 
 <main id="broken" class="reveal" hidden>
-  <div class="card reveal-card">
-    <div class="big-emoji">🤔</div>
+  <div class="reveal-card">
     <p class="hello">This link doesn't work</p>
-    <p class="muted">It may have been cut off when it was copied. Ask the organizer to send it again.</p>
+    <p class="muted">Ask the organizer to send it again.</p>
   </div>
 </main>
 
@@ -406,7 +404,6 @@ function showReveal(token) {
   $("#hello").textContent = `Hi ${r.giver}!`;
   $("#receiver").hidden = true; $("#revealBtn").hidden = false;
   $("#revealBtn").onclick = () => { $("#receiver").textContent = r.receiver + " 🎄"; $("#receiver").hidden = false; $("#revealBtn").hidden = true; };
-  $("#revealMeta").textContent = `Draw ${r.drawId}. If you get a link with a newer draw, that one counts.`;
 }
 function route() { const h = location.hash.slice(1); h ? showReveal(h) : showOrganizer(); }
 window.addEventListener("hashchange", route);

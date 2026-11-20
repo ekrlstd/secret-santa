@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Secret Santa</title>
+<style>
+  :root {
+    --bg: #faf7f2; --card: #ffffff; --ink: #1f2421; --muted: #6b716d; --line: #e4dfd6;
+    --field: #ffffff; --red: #b3261e; --on-red: #ffffff; --green: #1e6b45; --warn-bg: #fff4d6; --warn-ink: #6b4e00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141716; --card: #1d211f; --ink: #ecefed; --muted: #9aa29e; --line: #2f3532;
+      --field: #171a19; --red: #e2574c; --on-red: #ffffff; --green: #5fbf8a; --warn-bg: #3a3017; --warn-ink: #f3d98b;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 16px 0; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  .small { font-size: .8rem; }
+  .center { text-align: center; }
+  input, select, textarea {
+    font: inherit; color: inherit; background: var(--field); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; min-width: 0; max-width: 100%;
+  }
+  textarea { width: 100%; resize: vertical; }
+  button, .btn {
+    font: inherit; font-size: .95rem; cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    border-radius: 8px; padding: 7px 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  button:hover, .btn:hover { border-color: var(--muted); }
+  button.primary { background: var(--red); border-color: var(--red); color: var(--on-red); font-weight: 600; }
+  button.icon { padding: 7px 10px; }
+  button.link { border: 0; background: none; color: var(--muted); text-decoration: underline; padding: 4px; }
+  .row { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+  .person input.name { flex: 1 1 140px; }
+  .person input.phone { flex: 1 1 170px; }
+  .rule select { flex: 1 1 120px; }
+  .check { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; color: var(--muted); }
+  .field { display: block; margin: 0 0 12px; }
+  .field > span { display: block; font-size: .9rem; color: var(--muted); margin-bottom: 4px; }
+  .field input { width: 100%; }
+  .warn { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 8px 12px; font-size: .9rem; margin: 8px 0; }
+  .error { color: var(--red); font-weight: 600; }
+  .result { border-top: 1px solid var(--line); padding: 12px 0; display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+  .result .who { min-width: 0; flex: 1 1 220px; }
+  .result .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sent { color: var(--green); font-size: .85rem; font-weight: 600; margin-left: 6px; }
+  code.id { display: block; font-size: .78rem; color: var(--muted); overflow-wrap: anywhere; user-select: all; }
+  .results-head { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-top: 12px; }
+
+  /* Reveal page */
+  .reveal { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .reveal-card { text-align: center; padding: 32px 20px; width: 100%; max-width: 420px; }
+  .big-emoji { font-size: 3.5rem; line-height: 1; }
+  .hello { font-size: 1.4rem; font-weight: 700; margin: 12px 0 4px; }
+  .receiver { font-size: 2.4rem; font-weight: 800; color: var(--red); margin: 8px 0 16px; overflow-wrap: anywhere; }
+  button.big { font-size: 1.1rem; padding: 12px 22px; margin: 12px 0; }
+</style>
+</head>
+<body>
+
+<!-- ============ ORGANIZER VIEW ============ -->
+<main id="organizer" hidden>
+  <h1>🎅 Secret Santa</h1>
+  <p class="muted">Your list is saved in this browser. Results are hidden inside each person's link, so not even you see who got whom.</p>
+
+  <section class="card">
+    <h2>1. People</h2>
+    <div id="people"></div>
+    <button id="addPerson">+ Add person</button>
+    <p class="muted">Phone numbers are optional. Start with + and the country code, or type a local number like 070… and the default country code below gets added.</p>
+  </section>
+
+  <section class="card">
+    <h2>2. Rules <span class="muted">(optional)</span></h2>
+    <div id="rules"></div>
+    <button id="addRule">+ Add rule</button>
+  </section>
+
+  <section class="card">
+    <h2>3. Settings</h2>
+    <label class="field"><span>Site address (your GitHub Pages link)</span>
+      <input id="siteUrl" placeholder="https://yourname.github.io/secret-santa/"></label>
+    <label class="field"><span>Default country code</span>
+      <input id="cc" inputmode="numeric" placeholder="46"></label>
+    <label class="field"><span>Message ({name} and {link} are filled in)</span>
+      <textarea id="message" rows="3"></textarea></label>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <button id="draw" class="primary">🎲 Draw names</button>
+      <span id="drawMsg" class="muted"></span>
+    </div>
+    <div id="results"></div>
+  </section>
+
+  <p class="center"><button id="reset" class="link">Clear everything</button></p>
+</main>
+
+<!-- ============ REVEAL VIEW (what friends see) ============ -->
+<main id="reveal" class="reveal" hidden>
+  <div class="card reveal-card">
+    <div class="big-emoji">🎁</div>
+    <p id="hello" class="hello"></p>
+    <p>You're buying a Secret Santa gift for…</p>
+    <button id="revealBtn" class="primary big">Tap to reveal</button>
+    <p id="receiver" class="receiver" hidden></p>
+    <p id="revealMeta" class="muted small"></p>
+  </div>
+</main>
+
+<main id="broken" class="reveal" hidden>
+  <div class="card reveal-card">
+    <div class="big-emoji">🤔</div>
+    <p class="hello">This link doesn't work</p>
+    <p class="muted">It may have been cut off when it was copied. Ask the organizer to send it again.</p>
+  </div>
+</main>
+
+<script>
+/* ===== CORE (pure logic, no DOM) ===== */
+const KEY = new TextEncoder().encode("jultomten");
+
+function randInt(n) { return crypto.getRandomValues(new Uint32Array(1))[0] % n; }
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = randInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function newDrawId() { const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; for (let i = 0; i < 4; i++) s += abc[randInt(abc.length)]; return s; }
+
+function b64url(bytes) { let s = ""; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+function unb64url(str) { str = str.replace(/-/g, "+").replace(/_/g, "/"); while (str.length % 4) str += "="; return Uint8Array.from(atob(str), c => c.charCodeAt(0)); }
+
+// Token = the person's public ID and the part of their link after "#".
+// Layout: base64url( salt, bytes("s1|DRAWID|giver|receiver") XOR KEY XOR salt )
+function encodeToken(drawId, giver, receiver) {
+  const data = new TextEncoder().encode(["s1", drawId, giver, receiver].join("|"));
+  const salt = randInt(256);
+  const out = new Uint8Array(data.length + 1);
+  out[0] = salt;
+  for (let i = 0; i < data.length; i++) out[i + 1] = data[i] ^ KEY[i % KEY.length] ^ salt;
+  return b64url(out);
+}
+function decodeToken(tok) {
+  try {
+    const b = unb64url(decodeURIComponent(tok.trim()));
+    if (b.length < 2) return null;
+    const salt = b[0], d = new Uint8Array(b.length - 1);
+    for (let i = 0; i < d.length; i++) d[i] = b[i + 1] ^ KEY[i % KEY.length] ^ salt;
+    const parts = new TextDecoder("utf-8", { fatal: true }).decode(d).split("|");
+    if (parts.length !== 4 || parts[0] !== "s1") return null;
+    return { drawId: parts[1], giver: parts[2], receiver: parts[3] };
+  } catch { return null; }
+}
+
+// ids: person ids. banned: Set of "giverId>receiverId". Returns {giverId: receiverId} or null if impossible.
+function drawAssignment(ids, banned) {
+  const ok = (g, r) => g !== r && !banned.has(g + ">" + r);
+  // 1) Rejection sampling: every valid draw is equally likely.
+  for (let t = 0; t < 50000; t++) {
+    const perm = shuffle(ids.slice());
+    if (ids.every((g, i) => ok(g, perm[i]))) return Object.fromEntries(ids.map((g, i) => [g, perm[i]]));
+  }
+  // 2) Heavily constrained: randomized backtracking (also proves impossibility).
+  const options = Object.fromEntries(ids.map(g => [g, ids.filter(r => ok(g, r))]));
+  const order = shuffle(ids.slice()).sort((a, b) => options[a].length - options[b].length);
+  const used = new Set(), assign = {};
+  let steps = 0;
+  const bt = i => {
+    if (i === order.length) return true;
+    if (++steps > 500000) return false;
+    const g = order[i];
+    for (const r of shuffle(options[g].slice())) {
+      if (used.has(r)) continue;
+      used.add(r); assign[g] = r;
+      if (bt(i + 1)) return true;
+      used.delete(r);
+    }
+    return false;
+  };
+  return bt(0) ? assign : null;
+}
+
+// Returns digits in international format (no +), or "".
+function intlNumber(phone, cc) {
+  const p = (phone || "").trim();
+  if (!p) return "";
+  const digits = p.replace(/\D/g, "");
+  if (p.startsWith("+")) return digits;
+  if (digits.startsWith("00")) return digits.slice(2);
+  if (digits.startsWith("0")) return String(cc || "").replace(/\D/g, "") + digits.slice(1);
+  return digits;
+}
+/* ===== END CORE ===== */
+
+const $ = s => document.querySelector(s);
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+const STORE = "secret-santa-v1";
+const DEFAULT_MSG = "🎅 Hi {name}! The Secret Santa names have been drawn. Open this link to see who you're buying a gift for (keep it secret!): {link}";
+let state = null;
+
+function defaults() { return { people: [], rules: [], siteUrl: "", cc: "46", message: DEFAULT_MSG, draw: null }; }
+function load() {
+  try { const s = JSON.parse(localStorage.getItem(STORE)); if (s && Array.isArray(s.people)) return Object.assign(defaults(), s); } catch {}
+  return defaults();
+}
+function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} }
+
+const cleanName = n => (n || "").replace(/\|/g, "/").trim();
+const nameOf = id => cleanName((state.people.find(p => p.id === id) || {}).name);
+function setupKey() {
+  return JSON.stringify([state.people.map(p => [p.id, cleanName(p.name)]), state.rules.filter(r => r.from && r.to).map(r => [r.from, r.to, !!r.both])]);
+}
+function siteBase() { return (state.siteUrl || "").trim().split("#")[0]; }
+function linkFor(token) { return siteBase() + "#" + token; }
+
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  const t = el("textarea"); t.value = text; document.body.append(t); t.select();
+  let ok = false; try { ok = document.execCommand("copy"); } catch {}
+  t.remove(); return ok;
+}
+function flash(btn, msg) { const old = btn.textContent; btn.textContent = msg; setTimeout(() => btn.textContent = old, 1400); }
+
+/* ---------- People ---------- */
+function addPerson() {
+  state.people.push({ id: uid(), name: "", phone: "" });
+  save(); renderPeople(); renderRules();
+  const inputs = document.querySelectorAll("#people input.name");
+  inputs[inputs.length - 1].focus();
+}
+function renderPeople() {
+  const box = $("#people"); box.innerHTML = "";
+  if (!state.people.length) box.append(el("p", "muted", "No one yet. Add everyone who's taking part, including yourself."));
+  state.people.forEach((p, idx) => {
+    const row = el("div", "row person");
+    const name = el("input", "name"); name.placeholder = "Name"; name.value = p.name;
+    name.addEventListener("input", () => { p.name = name.value; save(); });
+    name.addEventListener("change", () => { renderRules(); renderResults(); });
+    const phone = el("input", "phone"); phone.type = "tel"; phone.placeholder = "Phone (optional)"; phone.value = p.phone || "";
+    phone.addEventListener("input", () => { p.phone = phone.value; save(); });
+    phone.addEventListener("change", renderResults);
+    [name, phone].forEach(inp => inp.addEventListener("keydown", e => {
+      if (e.key === "Enter" && idx === state.people.length - 1) { e.preventDefault(); addPerson(); }
+    }));
+    const rm = el("button", "icon", "✕"); rm.title = "Remove";
+    rm.onclick = () => {
+      state.people = state.people.filter(x => x !== p);
+      state.rules = state.rules.filter(r => r.from !== p.id && r.to !== p.id);
+      save(); renderAll();
+    };
+    row.append(name, phone, rm); box.append(row);
+  });
+}
+
+/* ---------- Rules ---------- */
+function personSelect(value, onChange) {
+  const s = el("select");
+  s.append(new Option("Pick…", ""));
+  state.people.forEach(p => s.append(new Option(cleanName(p.name) || "(no name)", p.id)));
+  s.value = value || "";
+  s.onchange = () => onChange(s.value);
+  return s;
+}
+function renderRules() {
+  const box = $("#rules"); box.innerHTML = "";
+  if (!state.rules.length) box.append(el("p", "muted", "No rules. Anyone can get anyone except themselves."));
+  state.rules.forEach(r => {
+    const row = el("div", "row rule");
+    const from = personSelect(r.from, v => { r.from = v; save(); renderResults(); });
+    const to = personSelect(r.to, v => { r.to = v; save(); renderResults(); });
+    const both = el("label", "check"); const cb = el("input"); cb.type = "checkbox"; cb.checked = !!r.both;
+    cb.onchange = () => { r.both = cb.checked; save(); renderResults(); };
+    both.append(cb, "and the other way round");
+    const rm = el("button", "icon", "✕"); rm.title = "Remove rule";
+    rm.onclick = () => { state.rules = state.rules.filter(x => x !== r); save(); renderRules(); renderResults(); };
+    row.append(from, el("span", "muted", "can't get"), to, both, rm);
+    box.append(row);
+  });
+}
+
+/* ---------- Draw ---------- */
+function doDraw() {
+  const msg = $("#drawMsg"); msg.className = "error"; msg.textContent = "";
+  const people = state.people;
+  const names = people.map(p => cleanName(p.name));
+  if (people.length < 3) return msg.textContent = "Add at least 3 people.";
+  if (names.some(n => !n)) return msg.textContent = "Everyone needs a name.";
+  const lower = names.map(n => n.toLowerCase());
+  const dup = names.find((n, i) => lower.indexOf(n.toLowerCase()) !== i);
+  if (dup) return msg.textContent = `Two people are called "${dup}". Make the names different.`;
+  if (!/^https?:\/\//.test(siteBase())) return msg.textContent = "Fill in the site address in Settings first.";
+
+  if (state.draw && state.draw.results.some(r => r.sent) &&
+      !confirm(`Replace draw ${state.draw.id}? Links you already sent will still show the OLD result, so send everyone their new link.`)) return;
+
+  const banned = new Set();
+  state.rules.forEach(r => {
+    if (!r.from || !r.to || r.from === r.to) return;
+    banned.add(r.from + ">" + r.to);
+    if (r.both) banned.add(r.to + ">" + r.from);
+  });
+  const assign = drawAssignment(people.map(p => p.id), banned);
+  if (!assign) return msg.textContent = "There's no possible draw with these rules. Remove or loosen one.";
+
+  const id = newDrawId();
+  state.draw = {
+    id, createdAt: new Date().toISOString(), setupKey: setupKey(),
+    results: people.map(p => ({ personId: p.id, giver: cleanName(p.name), token: encodeToken(id, cleanName(p.name), nameOf(assign[p.id])), sent: false })),
+  };
+  save(); renderResults();
+  msg.className = "muted"; msg.textContent = `Done! Draw ${id} is ready. Send the links below.`;
+}
+
+function renderResults() {
+  const box = $("#results"); box.innerHTML = "";
+  const d = state.draw; if (!d) return;
+
+  const head = el("div", "results-head");
+  const title = el("div");
+  title.append(el("strong", null, `Draw ${d.id}`), el("span", "muted", ` · ${new Date(d.createdAt).toLocaleString()}`));
+  const copyAll = el("button", null, "📋 Copy all IDs");
+  copyAll.onclick = async () => {
+    const text = [`Secret Santa draw ${d.id} (${d.createdAt.slice(0, 10)})`, ...d.results.map(r => `${r.giver}: ${r.token}`)].join("\n");
+    flash(copyAll, (await copy(text)) ? "Copied!" : "Copy failed");
+  };
+  head.append(title, copyAll);
+  box.append(head);
+
+  if (d.setupKey !== setupKey()) box.append(el("div", "warn", "You've changed people or rules since this draw. Draw again to use the changes."));
+
+  d.results.forEach(r => {
+    const person = state.people.find(p => p.id === r.personId);
+    const link = linkFor(r.token);
+    const text = (state.message || DEFAULT_MSG).replaceAll("{name}", r.giver).replaceAll("{link}", link);
+    const num = person ? intlNumber(person.phone, state.cc) : "";
+    const markSent = () => { r.sent = true; save(); setTimeout(renderResults, 50); };
+
+    const row = el("div", "result");
+    const who = el("div", "who");
+    const nm = el("strong", null, r.giver); who.append(nm);
+    if (r.sent) who.append(el("span", "sent", "✓ sent"));
+    const code = el("code", "id", "ID: " + r.token); who.append(code);
+
+    const actions = el("div", "actions");
+    if (num) {
+      const wa = el("a", "btn", "WhatsApp"); wa.href = `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
+      wa.target = "_blank"; wa.rel = "noopener"; wa.onclick = markSent;
+      const sms = el("a", "btn", "SMS"); sms.href = `sms:+${num}?&body=${encodeURIComponent(text)}`; sms.onclick = markSent;
+      actions.append(wa, sms);
+    }
+    const cp = el("button", null, "Copy link");
+    cp.onclick = async () => { const ok = await copy(link); flash(cp, ok ? "Copied!" : "Copy failed"); if (ok) markSent(); };
+    const open = el("a", "btn", "Open"); open.href = link; open.target = "_blank"; open.rel = "noopener";
+    open.title = "Open this link yourself (use it for your own name)";
+    actions.append(cp, open);
+
+    row.append(who, actions); box.append(row);
+  });
+}
+
+/* ---------- Wiring ---------- */
+function renderAll() {
+  renderPeople(); renderRules();
+  $("#siteUrl").value = state.siteUrl; $("#cc").value = state.cc; $("#message").value = state.message;
+  renderResults();
+}
+let wired = false;
+function showOrganizer() {
+  $("#reveal").hidden = true; $("#broken").hidden = true; $("#organizer").hidden = false;
+  if (wired) return;
+  wired = true;
+  state = load();
+  if (!state.siteUrl && /^https?:$/.test(location.protocol)) state.siteUrl = location.origin + location.pathname;
+  $("#addPerson").onclick = addPerson;
+  $("#addRule").onclick = () => { state.rules.push({ from: "", to: "", both: false }); save(); renderRules(); };
+  $("#siteUrl").oninput = e => { state.siteUrl = e.target.value; save(); };
+  $("#siteUrl").onchange = renderResults;
+  $("#cc").oninput = e => { state.cc = e.target.value; save(); };
+  $("#cc").onchange = renderResults;
+  $("#message").oninput = e => { state.message = e.target.value; save(); };
+  $("#message").onchange = renderResults;
+  $("#draw").onclick = doDraw;
+  $("#reset").onclick = () => {
+    if (!confirm("Delete all people, rules and the current draw from this browser?")) return;
+    try { localStorage.removeItem(STORE); } catch {}
+    state = defaults();
+    if (/^https?:$/.test(location.protocol)) state.siteUrl = location.origin + location.pathname;
+    renderAll(); $("#drawMsg").textContent = "";
+  };
+  renderAll();
+}
+function showReveal(token) {
+  $("#organizer").hidden = true;
+  const r = decodeToken(token);
+  if (!r) { $("#reveal").hidden = true; $("#broken").hidden = false; return; }
+  $("#broken").hidden = true; $("#reveal").hidden = false;
+  $("#hello").textContent = `Hi ${r.giver}!`;
+  $("#receiver").hidden = true; $("#revealBtn").hidden = false;
+  $("#revealBtn").onclick = () => { $("#receiver").textContent = r.receiver + " 🎄"; $("#receiver").hidden = false; $("#revealBtn").hidden = true; };
+  $("#revealMeta").textContent = `Draw ${r.drawId}. If you get a link with a newer draw, that one counts.`;
+}
+function route() { const h = location.hash.slice(1); h ? showReveal(h) : showOrganizer(); }
+window.addEventListener("hashchange", route);
+route();
+</script>
+</body>
+</html>
